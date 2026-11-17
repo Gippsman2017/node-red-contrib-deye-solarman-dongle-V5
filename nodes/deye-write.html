@@ -1,0 +1,93 @@
+<script type="text/javascript">
+  RED.nodes.registerType('deye-solarman-write', {
+    category: 'Deye Solarman',
+    color: '#D97706',
+    defaults: {
+      name: { value: '' },
+      dongle: { value: '', type: 'deye-solarman-config', required: true },
+      writeMode: { value: 'register' },
+      address: { value: 142, validate: RED.validators.number() }
+    },
+    inputs: 1,
+    outputs: 2,
+    outputLabels: ['success', 'error'],
+    icon: 'font-awesome/fa-pencil',
+    label: function () {
+      if (this.name) return this.name;
+      if (this.writeMode === 'sync_rtc') return 'deye sync RTC';
+      return 'deye solarman write';
+    },
+    oneditprepare: function () {
+      const node = this;
+      const currentDongle = $('#node-input-dongle').val();
+      if (!node.dongle && (!currentDongle || currentDongle === '_ADD_')) {
+        const firstCfg = $('#node-input-dongle option').filter(function () {
+          const val = $(this).attr('value');
+          return val && val !== '_ADD_';
+        }).first();
+        if (firstCfg.length > 0) {
+          $('#node-input-dongle').val(firstCfg.attr('value')).trigger('change');
+        }
+      }
+
+      const mode = node.writeMode === 'sync_rtc' ? 'sync_rtc' : 'register';
+      $('#node-input-writeMode').val(mode);
+
+      const toggleWriteMode = function () {
+        const activeMode = $('#node-input-writeMode').val();
+        $('#row-address').toggle(activeMode !== 'sync_rtc');
+        $('#row-rtc-hint').toggle(activeMode === 'sync_rtc');
+      };
+
+      $('#node-input-writeMode').on('change', toggleWriteMode);
+      toggleWriteMode();
+    },
+    oneditsave: function () {
+      this.writeMode = $('#node-input-writeMode').val() || 'register';
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="deye-solarman-write">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Write Holding Register">
+  </div>
+  <div class="form-row">
+    <label for="node-input-dongle"><i class="fa fa-server"></i> Dongle</label>
+    <input type="text" id="node-input-dongle">
+  </div>
+  <div class="form-row">
+    <label for="node-input-writeMode"><i class="fa fa-sliders"></i> Mode</label>
+    <select id="node-input-writeMode">
+      <option value="register">Write Holding Register(s)</option>
+      <option value="sync_rtc">Sync Inverter Clock (RTC)</option>
+    </select>
+  </div>
+  <div class="form-row" id="row-address">
+    <label for="node-input-address"><i class="fa fa-hashtag"></i> Default Address</label>
+    <input type="number" id="node-input-address" placeholder="142">
+  </div>
+  <div class="form-row" id="row-rtc-hint">
+    <label></label>
+    <div class="form-tips" style="width:70%; display:inline-block;">
+      Any incoming message (e.g. a standard timestamp <b>inject</b> node) packs and writes the 3 RTC registers
+      via FC <code>0x10</code> (<code>0x003E–0x0040</code> on 3-phase <code>SG04LP3</code>/<code>SG01HP3</code>,
+      <code>0x0016–0x0018</code> on 1-phase <code>SG01LP1</code>). Optionally pass <code>msg.date</code> or a date string to override current system time.
+    </div>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="deye-solarman-write">
+  <p>Writes holding registers or synchronizes the inverter RTC clock over Solarman V5 using Modbus Function Code <code>0x10</code>.</p>
+  <h3>Modes</h3>
+  <ul>
+    <li><b>Write Holding Register(s)</b>: writes a number or word array in <code>msg.payload</code> to <code>msg.address</code> (or Default Address). Sending <code>msg.payload = "sync_rtc"</code> (or <code>msg.action = "sync_rtc"</code>) also triggers RTC sync.</li>
+    <li><b>Sync Inverter Clock (RTC)</b>: wire any <b>inject</b> node (timestamp or cron) directly to sync the inverter clock to host time (or pass <code>msg.date</code>). Automatically picks <code>0x003E</code> (3-phase) or <code>0x0016</code> (1-phase) from the dongle's <b>Series</b>.</li>
+  </ul>
+  <h3>Outputs</h3>
+  <ol class="node-ports">
+    <li><b>success</b> — write acknowledgment (<code>msg.payload = { ok: true, address, values, response }</code>).</li>
+    <li><b>error</b> — failed writes, invalid inputs, missing dongle config, or queue overflow errors (<code>msg.error.message</code> and <code>msg.payload.error</code>).</li>
+  </ol>
+</script>

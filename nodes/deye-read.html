@@ -1,0 +1,183 @@
+<script type="text/javascript">
+  RED.nodes.registerType('deye-solarman-read', {
+    category: 'Deye Solarman',
+    color: '#F59E0B',
+    defaults: {
+      name: { value: '' },
+      dongle: { value: '', type: 'deye-solarman-config', required: true },
+      requestMode: { value: 'preset' },
+      preset: { value: 'smoke' },
+      allowMsgOverride: { value: true },
+      queueMode: { value: 'fifo' },
+      maxQueue: { value: 10, validate: RED.validators.number() },
+      paceMs: { value: 250, validate: RED.validators.number() },
+      blockDelayMs: { value: 50, validate: RED.validators.number() },
+      blocks: { value: [] },
+      registers: { value: [] }
+    },
+    inputs: 1,
+    outputs: 3,
+    outputLabels: ['success', 'error', 'stats'],
+    icon: 'font-awesome/fa-sun-o',
+    label: function () {
+      if (this.name) return this.name;
+      if (this.requestMode === 'message') return 'deye read (from msg)';
+      if (this.requestMode === 'preset') return 'deye read (' + (this.preset || 'smoke') + ')';
+      return 'deye solarman read';
+    },
+    oneditprepare: function () {
+      const node = this;
+      const currentDongle = $('#node-input-dongle').val();
+      if (!node.dongle && (!currentDongle || currentDongle === '_ADD_')) {
+        const firstCfg = $('#node-input-dongle option').filter(function () {
+          const val = $(this).attr('value');
+          return val && val !== '_ADD_';
+        }).first();
+        if (firstCfg.length > 0) {
+          $('#node-input-dongle').val(firstCfg.attr('value')).trigger('change');
+        }
+      }
+
+      const inferredMode =
+        node.requestMode ||
+        (Array.isArray(node.blocks) && node.blocks.length > 0 ? 'custom' : 'preset');
+      $('#node-input-requestMode').val(inferredMode);
+      $('#node-input-preset').val(node.preset || 'smoke');
+      $('#node-input-allowMsgOverride').prop('checked', node.allowMsgOverride !== false);
+
+      $('#node-input-blocks-json').val(
+        JSON.stringify(Array.isArray(node.blocks) ? node.blocks : [], null, 2)
+      );
+      $('#node-input-registers-json').val(
+        JSON.stringify(Array.isArray(node.registers) ? node.registers : [], null, 2)
+      );
+
+      const toggleRequestFields = function () {
+        const mode = $('#node-input-requestMode').val();
+        $('#row-preset').toggle(mode === 'preset');
+        $('#row-allowMsgOverride').toggle(mode !== 'message');
+        $('#row-custom-blocks').toggle(mode === 'custom');
+        $('#row-custom-registers').toggle(mode === 'custom');
+        $('#row-message-hint').toggle(mode === 'message');
+      };
+
+      const toggleMaxQueue = function () {
+        const mode = $('#node-input-queueMode').val();
+        $('#row-maxQueue').toggle(mode === 'fifo');
+      };
+
+      $('#node-input-requestMode').on('change', toggleRequestFields);
+      $('#node-input-queueMode').on('change', toggleMaxQueue);
+      toggleRequestFields();
+      toggleMaxQueue();
+    },
+    oneditsave: function () {
+      const mode = $('#node-input-requestMode').val();
+      this.requestMode = mode;
+      this.allowMsgOverride = $('#node-input-allowMsgOverride').is(':checked');
+
+      try {
+        const parsedBlocks = JSON.parse($('#node-input-blocks-json').val() || '[]');
+        this.blocks = Array.isArray(parsedBlocks) ? parsedBlocks : [];
+      } catch (_err) {
+        this.blocks = [];
+      }
+
+      try {
+        const parsedRegs = JSON.parse($('#node-input-registers-json').val() || '[]');
+        this.registers = Array.isArray(parsedRegs) ? parsedRegs : [];
+      } catch (_err) {
+        this.registers = [];
+      }
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="deye-solarman-read">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Read Deye Telemetry">
+  </div>
+  <div class="form-row">
+    <label for="node-input-dongle"><i class="fa fa-server"></i> Dongle</label>
+    <input type="text" id="node-input-dongle">
+  </div>
+  <div class="form-row">
+    <label for="node-input-requestMode"><i class="fa fa-exchange"></i> Request Source</label>
+    <select id="node-input-requestMode">
+      <option value="message">Accept from incoming msg</option>
+      <option value="preset">Built-in Preset (series-aware)</option>
+      <option value="custom">Custom Blocks &amp; Registers JSON</option>
+    </select>
+  </div>
+  <div class="form-row" id="row-preset">
+    <label for="node-input-preset"><i class="fa fa-list"></i> Preset</label>
+    <select id="node-input-preset">
+      <option value="smoke">Core Telemetry (Smoke Test)</option>
+      <option value="rtc">Inverter Clock (RTC)</option>
+      <option value="bms">BOS-G BMS &amp; Battery (bms_*)</option>
+      <option value="bms_gen">BOS-G BMS + Generator</option>
+      <option value="grid_load">Grid &amp; Home Load Power</option>
+      <option value="pv">PV Solar Strings &amp; Yield</option>
+      <option value="full_telemetry_bms_pv">Full Telemetry+BMS+PV</option>
+      <option value="full">Full Telemetry + BMS + Grid + PV</option>
+    </select>
+  </div>
+  <div class="form-row" id="row-allowMsgOverride">
+    <label for="node-input-allowMsgOverride"><i class="fa fa-bolt"></i> Msg Override</label>
+    <input type="checkbox" id="node-input-allowMsgOverride" style="display:inline-block; width:auto; vertical-align:top;">
+    <span style="margin-left:6px; font-size:12px;">Allow incoming <code>msg.preset</code> / <code>msg.blocks</code> / <code>msg.payload</code> to override</span>
+  </div>
+  <div class="form-row" id="row-message-hint">
+    <label></label>
+    <div class="form-tips" style="width:70%; display:inline-block;">
+      Send <code>msg.payload = "bms"</code> (or <code>"smoke"</code>, <code>"rtc"</code>, <code>"bms_gen"</code>, <code>"grid_load"</code>, <code>"pv"</code>, <code>"full_telemetry_bms_pv"</code>, <code>"full"</code>),
+      <code>{ "startAddress": 212, "registerCount": 7 }</code>, or <code>{ "blocks": [...], "registers": [...] }</code>.
+    </div>
+  </div>
+  <div class="form-row" id="row-custom-blocks">
+    <label for="node-input-blocks-json" style="vertical-align:top;"><i class="fa fa-th-list"></i> Blocks JSON</label>
+    <textarea id="node-input-blocks-json" rows="5" style="width:70%; font-family:monospace; font-size:12px;" placeholder='[{"startAddress": 587, "registerCount": 5, "functionCode": 3}]'></textarea>
+  </div>
+  <div class="form-row" id="row-custom-registers">
+    <label for="node-input-registers-json" style="vertical-align:top;"><i class="fa fa-code"></i> Registers JSON</label>
+    <textarea id="node-input-registers-json" rows="7" style="width:70%; font-family:monospace; font-size:12px;" placeholder='[{"key": "battery_soc", "address": 588, "wordCount": 1, "dataType": "uint16", "scale": 1, "offset": 0, "unit": "%"}]'></textarea>
+  </div>
+  <hr>
+  <div class="form-row">
+    <label for="node-input-queueMode"><i class="fa fa-tasks"></i> Busy Policy</label>
+    <select id="node-input-queueMode">
+      <option value="fifo">FIFO Queue (bounded)</option>
+      <option value="latest">Keep Latest (coalesce while busy)</option>
+      <option value="drop">Drop While Busy</option>
+    </select>
+  </div>
+  <div class="form-row" id="row-maxQueue">
+    <label for="node-input-maxQueue"><i class="fa fa-list-ol"></i> Max Queue</label>
+    <input type="number" id="node-input-maxQueue" min="1" max="200" placeholder="10">
+  </div>
+  <div class="form-row">
+    <label for="node-input-paceMs"><i class="fa fa-hourglass-half"></i> Job Pacing (ms)</label>
+    <input type="number" id="node-input-paceMs" min="0" max="60000" placeholder="250">
+  </div>
+  <div class="form-row">
+    <label for="node-input-blockDelayMs"><i class="fa fa-pause"></i> Block Delay (ms)</label>
+    <input type="number" id="node-input-blockDelayMs" min="0" max="10000" placeholder="50">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="deye-solarman-read">
+  <p>Reads Deye inverter and BOS-G BMS Modbus RTU registers over Solarman V5 TCP with sequential FIFO queuing and dongle pacing.</p>
+  <h3>Request Source Modes</h3>
+  <ul>
+    <li><b>Accept from incoming msg</b>: dynamically reads whatever the message requests via <code>msg.blocks</code>, <code>msg.startAddress</code> + <code>msg.registerCount</code>, <code>msg.preset</code>, or <code>msg.payload</code> (string preset name or request object).</li>
+    <li><b>Built-in Preset</b>: automatically builds series-aware blocks &amp; registers (including <code>bms_*</code>, RTC <code>0x003E</code> vs <code>0x0016</code>, and HV <code>SG01HP3</code> 0.1 V vs LV 0.01 V scaling) from the dongle's <b>Series</b> setting.</li>
+    <li><b>Custom Blocks &amp; Registers JSON</b>: edit explicit <code>blocks</code> and <code>registers</code> JSON arrays directly in the node dialog.</li>
+  </ul>
+  <h3>Outputs</h3>
+  <ol class="node-ports">
+    <li><b>success</b> — decoded telemetry object in <code>msg.payload</code> (or raw block words when no <code>registers</code> map is supplied).</li>
+    <li><b>error</b> — failed reads and FIFO overflow errors with <code>msg.error.message</code> and <code>msg.payload.error</code>.</li>
+    <li><b>stats</b> — dongle consumption rates (<code>rates.jobsPerMin</code>, <code>rates.blocksPerMin</code>, <code>rates.utilizationPct</code>, <code>queue</code>, <code>pacing</code>, <code>totals</code>).</li>
+  </ol>
+</script>

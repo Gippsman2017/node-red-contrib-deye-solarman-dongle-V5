@@ -1,0 +1,36 @@
+{
+  "name": "node-red-contrib-deye-solarman-dongle-v5",
+  "version": "1.2.0",
+  "description": "Zero-dependency Node-RED nodes for reading and writing Deye solar inverter and BOS-G BMS Modbus RTU registers over the Solarman V5 TCP dongle protocol (port 8899).",
+  "main": "nodes/deye-read.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "files": [
+    "lib/",
+    "nodes/",
+    "examples/",
+    "README.md"
+  ],
+  "keywords": [
+    "node-red",
+    "deye",
+    "solarman",
+    "solarman-v5",
+    "modbus",
+    "bos-g",
+    "solar",
+    "inverter"
+  ],
+  "node-red": {
+    "nodes": {
+      "deye-solarman-config": "nodes/deye-solarman-config.js",
+      "deye-solarman-read": "nodes/deye-read.js",
+      "deye-solarman-write": "nodes/deye-write.js"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

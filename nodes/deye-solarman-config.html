@@ -1,0 +1,58 @@
+<script type="text/javascript">
+  RED.nodes.registerType('deye-solarman-config', {
+    category: 'config',
+    defaults: {
+      name: { value: 'Deye Hybrid Dongle' },
+      host: { value: '192.168.1.120', required: true },
+      port: { value: 8899, required: true, validate: RED.validators.number() },
+      loggerSn: { value: '', required: true },
+      unitId: { value: 1, required: true, validate: RED.validators.number() },
+      timeout: { value: 3000, validate: RED.validators.number() },
+      retries: { value: 1, validate: RED.validators.number() },
+      series: { value: 'SG04LP3' }
+    },
+    label: function () {
+      return this.name || this.host + ':' + this.port + ' (SN ' + this.loggerSn + ')';
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="deye-solarman-config">
+  <div class="form-row">
+    <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-config-input-name" placeholder="Deye Hybrid Dongle">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-host"><i class="fa fa-server"></i> Dongle IP</label>
+    <input type="text" id="node-config-input-host" placeholder="192.168.1.120">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-port"><i class="fa fa-plug"></i> TCP Port</label>
+    <input type="number" id="node-config-input-port" placeholder="8899">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-loggerSn"><i class="fa fa-barcode"></i> Logger SN</label>
+    <input type="text" id="node-config-input-loggerSn" placeholder="2712345678">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-unitId"><i class="fa fa-microchip"></i> Unit ID</label>
+    <input type="number" id="node-config-input-unitId" placeholder="1">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+    <input type="number" id="node-config-input-timeout" placeholder="3000">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-retries"><i class="fa fa-refresh"></i> Retries</label>
+    <input type="number" id="node-config-input-retries" placeholder="1">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-series"><i class="fa fa-sliders"></i> Series</label>
+    <select id="node-config-input-series">
+      <option value="SG04LP3">SG04LP3 (3-Phase LV Hybrid)</option>
+      <option value="SG01LP1">SG01LP1 (1-Phase LV Hybrid)</option>
+      <option value="SG01HP3">SG01HP3 + BOS-G (3-Phase HV Hybrid)</option>
+      <option value="M80G3">SUN-M80G3 (Microinverter)</option>
+    </select>
+  </div>
+</script>
